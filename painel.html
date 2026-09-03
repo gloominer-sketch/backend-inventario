@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Acompanhamento - Inventário</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #f5f7fa; color: #1a1a1a; height: 100vh; overflow: hidden; }
+        .header { background-color: #001f3f; color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 22px; font-weight: 600; }
+        .container { max-width: 1300px; height: calc(100vh - 82px); margin: 0 auto; padding: 30px 20px; }
+        .card { background: #ffffff; border-radius: 12px; padding: 24px; height: 100%; display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05); }
+        textarea { width: 100%; min-height: 120px; resize: vertical; border: 2px solid #dfe6ee; border-radius: 10px; padding: 12px; font-size: 14px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .card-header h2 { font-size: 18px; color: #333; }
+        .card-actions { display: flex; gap: 10px; }
+        .btn-exportar:disabled { background-color: #aeb8c2; cursor: not-allowed; }
+        button { background-color: #0078D4; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:hover { background-color: #005a9e; }
+        .btn-secondary { background-color: #e3e7ec; color: #333; }
+        .btn-secondary:hover { background-color: #d0d7de; }
+        .table-responsive { flex: 1; min-height: 0; overflow: auto; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 900px; }
+        th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #e3e7ec; font-size: 14px; word-wrap: break-word; white-space: normal; }
+        th { position: sticky; top: 0; z-index: 1; background-color: #f8f9fa; color: #001f3f; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        th:nth-child(1) { width: 60px; } th:nth-child(2) { width: 100px; } th:nth-child(3) { width: 180px; } th:nth-child(4) { width: 60px; } th:nth-child(5) { width: 220px; } th:nth-child(6) { width: 150px; }
+        tr:hover { background-color: #fcfcfc; }
+        .empty-state { text-align: center; padding: 40px; color: #666; font-style: italic; }
+        #status-atualizacao { font-size: 12px; color: #666; margin-top: 16px; text-align: right; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Controle de contagens</h1>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="btn-secondary" onclick="abrirBloco('bloco-importacao-doc')">Importar Docs</button>
+            <button onclick="abrirBloco('bloco-importacao-base')">Importar UCs</button>
+            <button onclick="carregarDados()">Atualizar Agora</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- BLOCO IMPORTAR UCS -->
+        <div id="bloco-importacao-base" style="display: none; margin-bottom: 20px;">
+            <div class="card" style="height: auto;">
+                <div class="card-header"><h2>Base de UCs do Sistema</h2></div>
+                <label for="textarea-ucs" style="display:block; margin-bottom:10px; font-weight:600; color:#333;">Cole as UCs aqui, uma por linha ou separadas por vírgula</label>
+                <textarea id="textarea-ucs" placeholder="Exemplo: 123456789012345678"></textarea>
+                <div style="display: flex; gap: 12px; margin-top: 14px;">
+                    <button onclick="importarBaseUcs()" style="flex: 1;">Salvar UCs</button>
+                    <button onclick="fecharBloco('bloco-importacao-base', 'textarea-ucs')" class="btn-secondary" style="flex: 1;">Cancelar</button>
+                </div>
+                <div id="status-import-ucs" style="font-size: 13px; color: #444; margin-top: 12px;">Carregando base de UCs...</div>
+            </div>
+        </div>
+
+        <!-- BLOCO IMPORTAR DOCUMENTOS -->
+        <div id="bloco-importacao-doc" style="display: none; margin-bottom: 20px;">
+            <div class="card" style="height: auto;">
+                <div class="card-header"><h2>Documentos de Inventário</h2></div>
+                <label for="textarea-docs" style="display:block; margin-bottom:10px; font-weight:600; color:#333;">Cole os documentos no formato: Numero/Descricao/Pos1;Pos2;Pos3</label>
+                <textarea id="textarea-docs" placeholder="Exemplo:&#10;20260329/Blocado B1 a B10/B1;B2;B3;B4;B5;B6;B7;B8;B9;B10&#10;20260330/Blocado B11 a B20/B11;B12;B13;B14"></textarea>
+                <div style="display: flex; gap: 12px; margin-top: 14px;">
+                    <button onclick="importarDocs()" style="flex: 1;">Salvar Documentos</button>
+                    <button onclick="fecharBloco('bloco-importacao-doc', 'textarea-docs')" class="btn-secondary" style="flex: 1;">Cancelar</button>
+                </div>
+                <div id="status-import-docs" style="font-size: 13px; color: #444; margin-top: 12px;">Aguardando inserção...</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Últimas Bipagens Sincronizadas</h2>
+                <div class="card-actions">
+                    <button onclick="exportarParaExcel()" id="btn-exportar" class="btn-exportar" disabled>Exportar para Excel</button>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table id="tabela-dados">
+                    <thead>
+                        <tr><th>ID</th><th>Posição</th><th>UC Bipada</th><th>Seq</th><th>Operador</th><th>Data/Hora Registro</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="status-atualizacao">Aguardando conexão...</div>
+        </div>
+    </div>
+
+    <script>
+        let dadosCarregados = [];
+
+        function formatarData(dataString) {
+            if (!dataString) return '-';
+            return new Date(dataString).toLocaleString('pt-BR');
+        }
+
+        function abrirBloco(idBloco) {
+            document.getElementById('bloco-importacao-base').style.display = 'none';
+            document.getElementById('bloco-importacao-doc').style.display = 'none';
+            document.getElementById(idBloco).style.display = 'block';
+        }
+
+        function fecharBloco(idBloco, idTextarea) {
+            document.getElementById(idBloco).style.display = 'none';
+            document.getElementById(idTextarea).value = '';
+        }
+
+        function atualizarStatusBaseUcs(dados) {
+            const total = dados?.total ?? 0;
+            document.getElementById('status-import-ucs').innerText = total > 0 ? `Base ativa: ${total} UC(s) cadastrada(s) no sistema.` : 'Nenhuma UC cadastrada na base do sistema ainda.';
+        }
+
+        function carregarResumoUcs() {
+            fetch('/ucs').then(r => r.json()).then(atualizarStatusBaseUcs).catch(() => {
+                document.getElementById('status-import-ucs').innerText = 'Não foi possível carregar a base de UCs.';
+            });
+        }
+
+        function importarBaseUcs() {
+            const texto = document.getElementById('textarea-ucs').value.trim();
+            if (!texto) return alert('Cole as UCs para salvar a base.');
+            fetch('/ucs/importar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ucs: texto }) })
+            .then(r => r.json()).then(resultado => {
+                alert(`Importação concluída: ${resultado.novos} nova(s), ${resultado.duplicados} duplicada(s).`);
+                fecharBloco('bloco-importacao-base', 'textarea-ucs');
+                carregarResumoUcs();
+            }).catch(e => alert('Erro na importação das UCs.'));
+        }
+
+        function importarDocs() {
+            const texto = document.getElementById('textarea-docs').value.trim();
+            if (!texto) return alert('Cole os documentos para salvar.');
+            document.getElementById('status-import-docs').innerText = "Processando...";
+            
+            fetch('/documentos/importar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto: texto }) })
+            .then(r => r.json()).then(resultado => {
+                alert(resultado.mensagem || 'Documentos importados com sucesso!');
+                fecharBloco('bloco-importacao-doc', 'textarea-docs');
+                document.getElementById('status-import-docs').innerText = "Aguardando inserção...";
+            }).catch(e => {
+                document.getElementById('status-import-docs').innerText = "Erro ao importar.";
+                alert('Erro na importação dos Documentos.');
+            });
+        }
+
+        function carregarDados() {
+            fetch('/dados?t=' + new Date().getTime())
+                .then(response => response.json())
+                .then(dados => {
+                    dadosCarregados = dados;
+                    document.getElementById('btn-exportar').disabled = dados.length === 0;
+                    const tbody = document.querySelector('#tabela-dados tbody');
+                    tbody.innerHTML = '';
+                    if (dados.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Nenhum dado sincronizado ainda.</td></tr>';
+                    } else {
+                        dados.forEach(linha => {
+                            tbody.innerHTML += `<tr><td><strong>#${linha.id}</strong></td><td>${linha.posicao}</td><td><strong>${linha.uc}</strong></td><td>${linha.seq}</td><td>${linha.matricula || linha.operador} - ${linha.nome}</td><td>${formatarData(linha.data_hora)}</td></tr>`;
+                        });
+                    }
+                    document.getElementById('status-atualizacao').innerText = `Última atualização: ${new Date().toLocaleTimeString('pt-BR')} (Atualização automática a cada 10s)`;
+                }).catch(() => document.getElementById('status-atualizacao').innerText = `Falha de conexão com o servidor.`);
+        }
+
+        function exportarParaExcel() {
+            if (dadosCarregados.length === 0) return alert('Não há dados para exportar.');
+            const csv = [['ID', 'Posição', 'UC Bipada', 'Seq', 'Operador', 'Data/Hora Registro'], ...dadosCarregados.map(l => [l.id, l.posicao, `="${String(l.uc ?? '')}"`, l.seq, `${l.matricula || l.operador} - ${l.nome}`, formatarData(l.data_hora)])]
+                .map(linha => linha.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' }));
+            link.download = `bipagens_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+        }
+
+        carregarResumoUcs();
+        carregarDados();
+        setInterval(() => { carregarDados(); carregarResumoUcs(); }, 10000);
+    </script>
+</body>
+</html>

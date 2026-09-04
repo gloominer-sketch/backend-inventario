@@ -9,7 +9,7 @@
         body { background-color: #f5f7fa; color: #1a1a1a; height: 100vh; overflow: hidden; }
         .header { background-color: #001f3f; color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .header h1 { font-size: 22px; font-weight: 600; }
-        .container { max-width: 1300px; height: calc(100vh - 82px); margin: 0 auto; padding: 30px 20px; }
+        .container { max-width: 1400px; height: calc(100vh - 82px); margin: 0 auto; padding: 30px 20px; }
         .card { background: #ffffff; border-radius: 12px; padding: 24px; height: 100%; display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05); }
         textarea { width: 100%; min-height: 120px; resize: vertical; border: 2px solid #dfe6ee; border-radius: 10px; padding: 12px; font-size: 14px; }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
@@ -22,15 +22,27 @@
         .btn-secondary:hover { background-color: #d0d7de; }
         .btn-danger { background-color: #c62828; color: white; }
         .btn-danger:hover { background-color: #b71c1c; }
+        .btn-dash { background-color: #107c41; color: white; }
+        .btn-dash:hover { background-color: #0c5e31; }
         .table-responsive { flex: 1; min-height: 0; overflow: auto; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1000px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1100px; }
         th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #e3e7ec; font-size: 14px; word-wrap: break-word; white-space: normal; }
         th { position: sticky; top: 0; z-index: 1; background-color: #f8f9fa; color: #001f3f; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
-        /* Ajuste de colunas para 7 itens: ID, Pos, UC, Material, Peso, Operador, Data */
-        th:nth-child(1) { width: 60px; } th:nth-child(2) { width: 100px; } th:nth-child(3) { width: 180px; } th:nth-child(4) { width: 150px; } th:nth-child(5) { width: 100px; } th:nth-child(6) { width: 200px; } th:nth-child(7) { width: 150px; }
+        
+        /* Ajuste de colunas para 8 itens */
+        th:nth-child(1) { width: 60px; } th:nth-child(2) { width: 100px; } th:nth-child(3) { width: 180px; } th:nth-child(4) { width: 130px; } th:nth-child(5) { width: 100px; } th:nth-child(6) { width: 180px; } th:nth-child(7) { width: 150px; } th:nth-child(8) { width: 160px; }
+        
         tr:hover { background-color: #fcfcfc; }
         .empty-state { text-align: center; padding: 40px; color: #666; font-style: italic; }
         #status-atualizacao { font-size: 12px; color: #666; margin-top: 16px; text-align: right; }
+
+        /* Estilo do Modal Dash */
+        .modal-dash-container { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+        .modal-dash-box { background: white; padding: 24px; border-radius: 12px; width: 400px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .modal-dash-box h3 { margin-bottom: 16px; color: #001f3f; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+        .lista-dash { list-style: none; overflow-y: auto; flex: 1; margin-bottom: 16px; }
+        .lista-dash li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 15px; }
+        .lista-dash li strong { color: #0078D4; }
     </style>
 </head>
 <body>
@@ -78,6 +90,7 @@
             <div class="card-header">
                 <h2>Últimas Bipagens Sincronizadas</h2>
                 <div class="card-actions">
+                    <button onclick="abrirDash()" class="btn-dash">📊 Dash</button>
                     <button onclick="exportarParaExcel()" id="btn-exportar" class="btn-exportar" disabled>Exportar para Excel</button>
                 </div>
             </div>
@@ -85,12 +98,21 @@
             <div class="table-responsive">
                 <table id="tabela-dados">
                     <thead>
-                        <tr><th>ID</th><th>Posição</th><th>UC Bipada</th><th>Material</th><th>Peso (KG)</th><th>Operador</th><th>Data/Hora Registro</th></tr>
+                        <tr><th>ID</th><th>Posição</th><th>UC Bipada</th><th>Material</th><th>Peso (KG)</th><th>Operador</th><th>Documento</th><th>Data/Hora Registro</th></tr>
                     </thead>
                     <tbody></tbody>
                 </table>
             </div>
             <div id="status-atualizacao">Aguardando conexão...</div>
+        </div>
+    </div>
+
+    <!-- MODAL DO DASHBOARD LEVE -->
+    <div id="modal-dash" class="modal-dash-container">
+        <div class="modal-dash-box">
+            <h3>Visão Geral: Documentos Acessados</h3>
+            <ul id="lista-docs-dash" class="lista-dash"></ul>
+            <button class="btn-secondary" onclick="document.getElementById('modal-dash').style.display='none'">Fechar Aba</button>
         </div>
     </div>
 
@@ -160,11 +182,12 @@
                     const tbody = document.querySelector('#tabela-dados tbody');
                     tbody.innerHTML = '';
                     if (dados.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Nenhum dado sincronizado ainda.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Nenhum dado sincronizado ainda.</td></tr>';
                     } else {
                         dados.forEach(linha => {
                             const material = linha.material ? linha.material : '-';
                             const peso = linha.peso_liquido ? linha.peso_liquido : '-';
+                            const documento = linha.documento ? linha.documento : '-';
                             
                             tbody.innerHTML += `<tr>
                                 <td><strong>#${linha.id}</strong></td>
@@ -173,6 +196,7 @@
                                 <td>${material}</td>
                                 <td>${peso}</td>
                                 <td>${linha.matricula || linha.operador} - ${linha.nome}</td>
+                                <td><strong>${documento}</strong></td>
                                 <td>${formatarData(linha.data_hora)}</td>
                             </tr>`;
                         });
@@ -181,12 +205,33 @@
                 }).catch(() => document.getElementById('status-atualizacao').innerText = `Falha de conexão com o servidor.`);
         }
 
+        // --- LÓGICA DO DASHBOARD ---
+        function abrirDash() {
+            const resumo = {};
+            // Conta quantas vezes cada documento aparece nos dados já carregados na tela
+            dadosCarregados.forEach(linha => {
+                const doc = linha.documento || "Sem Documento";
+                resumo[doc] = (resumo[doc] || 0) + 1;
+            });
+
+            const ul = document.getElementById('lista-docs-dash');
+            ul.innerHTML = '';
+            
+            if (Object.keys(resumo).length === 0) {
+                ul.innerHTML = '<li style="text-align:center; color:#666;">Nenhum dado registrado.</li>';
+            } else {
+                for (const [doc, quantidade] of Object.entries(resumo)) {
+                    ul.innerHTML += `<li><strong>📄 ${doc}</strong> <span>${quantidade} bipagem(ns)</span></li>`;
+                }
+            }
+            document.getElementById('modal-dash').style.display = 'flex';
+        }
+
         function exportarParaExcel() {
             if (dadosCarregados.length === 0) return alert('Não há dados para exportar.');
             
-            // Atualizado o cabeçalho do Excel e os dados puxados
-            const csv = [['ID', 'Posição', 'UC Bipada', 'Material', 'Peso (KG)', 'Operador', 'Data/Hora Registro'], 
-                         ...dadosCarregados.map(l => [l.id, l.posicao, `="${String(l.uc ?? '')}"`, l.material || '', l.peso_liquido || '', `${l.matricula || l.operador} - ${l.nome}`, formatarData(l.data_hora)])]
+            const csv = [['ID', 'Posição', 'UC Bipada', 'Material', 'Peso (KG)', 'Operador', 'Documento', 'Data/Hora Registro'], 
+                         ...dadosCarregados.map(l => [l.id, l.posicao, `="${String(l.uc ?? '')}"`, l.material || '', l.peso_liquido || '', `${l.matricula || l.operador} - ${l.nome}`, l.documento || '', formatarData(l.data_hora)])]
                 .map(linha => linha.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
                 
             const link = document.createElement('a');
@@ -197,7 +242,6 @@
 
         function limparBancoDados() {
             const confirmacao = confirm("🚨 ATENÇÃO EXTREMA!\n\nIsso vai APAGAR TODAS as leituras e UCs do banco de dados atual.\nTem certeza absoluta que deseja iniciar um novo inventário?");
-            
             if (confirmacao) {
                 fetch('/limpar-base', { method: 'POST' })
                 .then(response => response.json())

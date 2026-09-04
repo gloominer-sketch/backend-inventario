@@ -20,11 +20,14 @@
         button:hover { background-color: #005a9e; }
         .btn-secondary { background-color: #e3e7ec; color: #333; }
         .btn-secondary:hover { background-color: #d0d7de; }
+        .btn-danger { background-color: #c62828; color: white; }
+        .btn-danger:hover { background-color: #b71c1c; }
         .table-responsive { flex: 1; min-height: 0; overflow: auto; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 900px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1000px; }
         th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #e3e7ec; font-size: 14px; word-wrap: break-word; white-space: normal; }
         th { position: sticky; top: 0; z-index: 1; background-color: #f8f9fa; color: #001f3f; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
-        th:nth-child(1) { width: 60px; } th:nth-child(2) { width: 100px; } th:nth-child(3) { width: 180px; } th:nth-child(4) { width: 60px; } th:nth-child(5) { width: 220px; } th:nth-child(6) { width: 150px; }
+        /* Ajuste de colunas para 7 itens: ID, Pos, UC, Material, Peso, Operador, Data */
+        th:nth-child(1) { width: 60px; } th:nth-child(2) { width: 100px; } th:nth-child(3) { width: 180px; } th:nth-child(4) { width: 150px; } th:nth-child(5) { width: 100px; } th:nth-child(6) { width: 200px; } th:nth-child(7) { width: 150px; }
         tr:hover { background-color: #fcfcfc; }
         .empty-state { text-align: center; padding: 40px; color: #666; font-style: italic; }
         #status-atualizacao { font-size: 12px; color: #666; margin-top: 16px; text-align: right; }
@@ -38,6 +41,7 @@
             <button class="btn-secondary" onclick="abrirBloco('bloco-importacao-doc')">Importar Docs</button>
             <button onclick="abrirBloco('bloco-importacao-base')">Importar UCs</button>
             <button onclick="carregarDados()">Atualizar Agora</button>
+            <button class="btn-danger" onclick="limparBancoDados()">🗑️ Limpar Base</button>
         </div>
     </div>
 
@@ -81,7 +85,7 @@
             <div class="table-responsive">
                 <table id="tabela-dados">
                     <thead>
-                        <tr><th>ID</th><th>Posição</th><th>UC Bipada</th><th>Seq</th><th>Operador</th><th>Data/Hora Registro</th></tr>
+                        <tr><th>ID</th><th>Posição</th><th>UC Bipada</th><th>Material</th><th>Peso (KG)</th><th>Operador</th><th>Data/Hora Registro</th></tr>
                     </thead>
                     <tbody></tbody>
                 </table>
@@ -156,10 +160,21 @@
                     const tbody = document.querySelector('#tabela-dados tbody');
                     tbody.innerHTML = '';
                     if (dados.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Nenhum dado sincronizado ainda.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Nenhum dado sincronizado ainda.</td></tr>';
                     } else {
                         dados.forEach(linha => {
-                            tbody.innerHTML += `<tr><td><strong>#${linha.id}</strong></td><td>${linha.posicao}</td><td><strong>${linha.uc}</strong></td><td>${linha.seq}</td><td>${linha.matricula || linha.operador} - ${linha.nome}</td><td>${formatarData(linha.data_hora)}</td></tr>`;
+                            const material = linha.material ? linha.material : '-';
+                            const peso = linha.peso_liquido ? linha.peso_liquido : '-';
+                            
+                            tbody.innerHTML += `<tr>
+                                <td><strong>#${linha.id}</strong></td>
+                                <td>${linha.posicao}</td>
+                                <td><strong>${linha.uc}</strong></td>
+                                <td>${material}</td>
+                                <td>${peso}</td>
+                                <td>${linha.matricula || linha.operador} - ${linha.nome}</td>
+                                <td>${formatarData(linha.data_hora)}</td>
+                            </tr>`;
                         });
                     }
                     document.getElementById('status-atualizacao').innerText = `Última atualização: ${new Date().toLocaleTimeString('pt-BR')} (Atualização automática a cada 10s)`;
@@ -168,12 +183,31 @@
 
         function exportarParaExcel() {
             if (dadosCarregados.length === 0) return alert('Não há dados para exportar.');
-            const csv = [['ID', 'Posição', 'UC Bipada', 'Seq', 'Operador', 'Data/Hora Registro'], ...dadosCarregados.map(l => [l.id, l.posicao, `="${String(l.uc ?? '')}"`, l.seq, `${l.matricula || l.operador} - ${l.nome}`, formatarData(l.data_hora)])]
+            
+            // Atualizado o cabeçalho do Excel e os dados puxados
+            const csv = [['ID', 'Posição', 'UC Bipada', 'Material', 'Peso (KG)', 'Operador', 'Data/Hora Registro'], 
+                         ...dadosCarregados.map(l => [l.id, l.posicao, `="${String(l.uc ?? '')}"`, l.material || '', l.peso_liquido || '', `${l.matricula || l.operador} - ${l.nome}`, formatarData(l.data_hora)])]
                 .map(linha => linha.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+                
             const link = document.createElement('a');
             link.href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' }));
             link.download = `bipagens_${new Date().toISOString().slice(0, 10)}.csv`;
             link.click();
+        }
+
+        function limparBancoDados() {
+            const confirmacao = confirm("🚨 ATENÇÃO EXTREMA!\n\nIsso vai APAGAR TODAS as leituras e UCs do banco de dados atual.\nTem certeza absoluta que deseja iniciar um novo inventário?");
+            
+            if (confirmacao) {
+                fetch('/limpar-base', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.mensagem || data.erro);
+                    carregarDados();
+                    carregarResumoUcs();
+                })
+                .catch(error => alert("Erro ao tentar limpar o banco: " + error));
+            }
         }
 
         carregarResumoUcs();

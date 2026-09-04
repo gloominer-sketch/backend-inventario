@@ -414,18 +414,18 @@ def sincronizar_dados():
             cursor.execute('SELECT id FROM bipagens WHERE posicao = %s AND uc = %s AND seq = %s', (item['posicao'], item['uc'], item['seq']))
             existe = cursor.fetchone()
             if not existe:
-                # Captura o material e peso (se não existir, salva vazio/zero)
                 material = item.get('material', '')
                 peso = item.get('peso_liquido', 0)
+                documento = item.get('documento', '') # Captura o documento vindo do coletor
                 
                 cursor.execute('''
-                    INSERT INTO bipagens (operador, nome, posicao, uc, seq, data_hora, data_sincronizacao, material, peso_liquido)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ''', (item['operador'], item['nome'], item['posicao'], item['uc'], item['seq'], item['dataHora'], agora, material, peso))
+                    INSERT INTO bipagens (operador, nome, posicao, uc, seq, data_hora, data_sincronizacao, material, peso_liquido, documento)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (item['operador'], item['nome'], item['posicao'], item['uc'], item['seq'], item['dataHora'], agora, material, peso, documento))
                 sucessos += 1
         except Exception as e:
             print(f"Erro ao inserir item {item['uc']}: {e}")
-            conn.rollback() # Em caso de erro, dá rollback no laço atual
+            conn.rollback() 
     conn.commit()
     cursor.close()
     conn.close()

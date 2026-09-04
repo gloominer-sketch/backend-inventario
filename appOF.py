@@ -414,10 +414,14 @@ def sincronizar_dados():
             cursor.execute('SELECT id FROM bipagens WHERE posicao = %s AND uc = %s AND seq = %s', (item['posicao'], item['uc'], item['seq']))
             existe = cursor.fetchone()
             if not existe:
+                # Captura o material e peso (se não existir, salva vazio/zero)
+                material = item.get('material', '')
+                peso = item.get('peso_liquido', 0)
+                
                 cursor.execute('''
-                    INSERT INTO bipagens (operador, nome, posicao, uc, seq, data_hora, data_sincronizacao)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                ''', (item['operador'], item['nome'], item['posicao'], item['uc'], item['seq'], item['dataHora'], agora))
+                    INSERT INTO bipagens (operador, nome, posicao, uc, seq, data_hora, data_sincronizacao, material, peso_liquido)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (item['operador'], item['nome'], item['posicao'], item['uc'], item['seq'], item['dataHora'], agora, material, peso))
                 sucessos += 1
         except Exception as e:
             print(f"Erro ao inserir item {item['uc']}: {e}")
@@ -436,6 +440,24 @@ def listar_dados():
     cursor.close()
     conn.close()
     return jsonify([dict(row) for row in bipagens])
+
+@app.route('/limpar-base', methods=['POST'])
+def limpar_base():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Limpa as tabelas do inventário atual
+        cursor.execute("TRUNCATE TABLE bipagens CASCADE;")
+        cursor.execute("TRUNCATE TABLE ucs CASCADE;")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({"mensagem": "Banco de dados limpo com sucesso! Novo inventário pronto para iniciar."}), 200
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
 
 @app.route('/<path:filename>')
 def serve_static(filename):

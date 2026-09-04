@@ -448,8 +448,8 @@ def limpar_base():
         cursor = conn.cursor()
         
         # Limpa as tabelas do inventário atual
-        cursor.execute("TRUNCATE TABLE bipagens CASCADE;")
-        cursor.execute("TRUNCATE TABLE ucs CASCADE;")
+        cursor.execute("TRUNCATE TABLE bipagens RESTART IDENTITY CASCADE;")
+        cursor.execute("TRUNCATE TABLE ucs RESTART IDENTITY CASCADE;")
         
         conn.commit()
         cursor.close()

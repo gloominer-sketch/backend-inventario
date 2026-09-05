@@ -174,7 +174,8 @@ def init_db():
             data_hora TEXT,
             data_sincronizacao TEXT,
             material TEXT,
-            peso_liquido REAL
+            peso_liquido REAL,
+            documento TEXT
         )
     ''')
     cursor.execute('''
@@ -447,15 +448,16 @@ def limpar_base():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Limpa as tabelas do inventário atual
+        # Limpa todas as tabelas do ciclo de inventário e RESETA os IDs para 1
         cursor.execute("TRUNCATE TABLE bipagens RESTART IDENTITY CASCADE;")
         cursor.execute("TRUNCATE TABLE ucs RESTART IDENTITY CASCADE;")
+        cursor.execute("TRUNCATE TABLE documentos RESTART IDENTITY CASCADE;")
         
         conn.commit()
         cursor.close()
         conn.close()
         
-        return jsonify({"mensagem": "Banco de dados limpo com sucesso! Novo inventário pronto para iniciar."}), 200
+        return jsonify({"mensagem": "Banco de dados limpo com sucesso! Bipagens, UCs e Documentos foram zerados."}), 200
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
 
